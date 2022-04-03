@@ -2,6 +2,7 @@ import std/[strutils, strformat, enumutils, macros, typetraits]
 
 import chroma
 import niprefs
+import passgen
 import stb_image/read as stbi
 import nimgl/[imgui, glfw, opengl]
 
@@ -16,8 +17,9 @@ type
     cache*: PObjectType # Settings cache
 
     # Variables
-    somefloat*: float32
-    counter*: int
+    pg*: PasswordGenerator
+    password*: string
+    copyBtnText*: string
 
   SettingTypes* = enum
     Input # Input text
@@ -33,6 +35,37 @@ type
     Section
 
   ImageData* = tuple[image: seq[byte], width, height: int]
+
+proc `+`*(vec1, vec2: ImVec2): ImVec2 = 
+  ImVec2(x: vec1.x + vec2.x, y: vec1.y + vec1.y)
+
+proc `-`*(vec1, vec2: ImVec2): ImVec2 = 
+  ImVec2(x: vec1.x - vec2.x, y: vec1.y - vec1.y)
+
+proc `*`*(vec: ImVec2, num: float32): ImVec2 = 
+  ImVec2(x: vec.x * num, y: vec.y * num)
+
+proc `+=`*(vec1: var ImVec2, vec2: ImVec2) = 
+  vec1.x += vec2.x
+  vec1.y += vec2.y
+
+proc `-=`*(vec1: var ImVec2, vec2: ImVec2) = 
+  vec1.x -= vec2.x
+  vec1.y -= vec2.y
+
+proc `*=`*(vec: var ImVec2, num: float32) = 
+  vec.x *= num
+  vec.y *= num
+
+proc calcFlags*(prefs: Prefs): set[CFlag] = 
+  if prefs["lower"].getBool():
+    result.incl fLower
+  if prefs["upper"].getBool():
+    result.incl fUpper
+  if prefs["digits"].getBool():
+    result.incl fDigits
+  if prefs["special"].getBool():
+    result.incl fSpecial
 
 # To be able to print large holey enums
 macro enumFullRange*(a: typed): untyped =
@@ -146,3 +179,33 @@ proc igHelpMarker*(text: string) =
     igTextUnformatted(text)
     igPopTextWrapPos()
     igEndTooltip()
+
+proc centerCursorX*(width: float32, align: float = 0.5f) = 
+  # let style = igGetStyle()
+  var avail: ImVec2
+
+  igGetContentRegionAvailNonUDT(avail.addr)
+  
+  # size.x += style.framePadding.x * 2
+
+  let off = (avail.x - width) * align
+  
+  if off > 0:
+    igSetCursorPosX(igGetCursorPosX() + off)
+
+proc centerCursorY*(height: float32, align: float = 0.5f) = 
+  # let style = igGetStyle()
+  var avail: ImVec2
+
+  igGetContentRegionAvailNonUDT(avail.addr)
+  
+  # size.y += style.framePadding.y * 2
+
+  let off = (avail.y - height) * align
+  
+  if off > 0:
+    igSetCursorPosY(igGetCursorPosY() + off)
+
+proc centerCursor*(size: ImVec2, alignX: float = 0.5f, alignY: float = 0.5f) = 
+  centerCursorX(size.x, alignX)
+  centerCursorY(size.y, alignY)

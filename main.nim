@@ -1,16 +1,25 @@
-import std/[strutils, browsers]
+import std/[strutils, browsers, os]
 
-import chroma
 import imstyle
 import niprefs
+import passgen
 import nimgl/[opengl, glfw]
 import nimgl/imgui, nimgl/imgui/[impl_opengl, impl_glfw]
 
-import src/[common, prefsmodal]
+import src/[utils, prefsmodal]
 
 const
-  configPath = "src/config.niprefs"
-  bgColor = "#21232B".parseHtmlColor() # Background color of the GLFW window, same color as the ImGui window background so it looks more natural
+  configPath = "config.niprefs"
+
+proc getPath(path: string): string = 
+  # When running on an AppImage get the path from the AppImage resources
+  when defined(appImage):
+    result = getEnv"APPDIR" / "data" / path.extractFilename()
+  else:
+    result = getAppDir() / path
+
+proc getPath(path: PrefsNode): string = 
+  path.getString().getPath()
 
 proc drawAboutModal(app: var App) = 
   var center: ImVec2
@@ -21,7 +30,7 @@ proc drawAboutModal(app: var App) =
     # Display icon image
     var
       texture: GLuint
-      image = app.config["iconPath"].getString().readImage()
+      image = app.config["iconPath"].getPath().readImage()
     image.loadTextureFromData(texture)
     
     igImage(cast[ptr ImTextureID](texture), igVec2(float32 image.width, float32 image.height))
@@ -44,6 +53,14 @@ proc drawAboutModal(app: var App) =
 
     igEndPopup()
 
+proc genPassword(app: var App) = 
+  app.password = app.pg.getPassword().replace("%", "%%") # Since a single % mean format
+  app.copyBtnText = "Copy"
+
+proc copyPassword(app: var App) = 
+  app.win.setClipboardString(app.password)
+  app.copyBtnText = "Copied"
+
 proc drawMenuBar(app: var App) =
   var openAbout, openPrefs = false
 
@@ -55,10 +72,10 @@ proc drawMenuBar(app: var App) =
       igEndMenu()
 
     if igBeginMenu("Edit"):
-      if igMenuItem("Reset Counter", "Ctrl+R"):
-        app.counter = 0
-      if igMenuItem("Paste", "Ctrl+V"):
-        echo "paste"
+      if igMenuItem("Generate", "Ctrl+G"):
+        app.genPassword()
+      if igMenuItem("Copy", "Ctrl+C"):
+        app.copyPassword()
 
       igEndMenu()
 
@@ -88,17 +105,55 @@ proc drawMain(app: var App) = # Draw the main window
 
   app.drawMenuBar()
 
-  igText("This is some useful text.")
+  let style = igGetStyle()
+  var
+    size: ImVec2 # All widgets size
+    avail: ImVec2
+    textSize: ImVec2
+    btnsSize: ImVec2
+    genBtnSize: ImVec2
 
-  igSliderFloat("float", app.somefloat.addr, 0.0f, 1.0f)
+  igGetContentRegionAvailNonUDT(avail.addr)
 
-  if igButton("Button"):
-    inc app.counter
+  # Calculate password text size
+  igCalcTextSizeNonUDT(textSize.addr, app.password)
+
+  if textSize.x > avail.x + 20:
+    textSize.y += 17
+
+  # Calculate buttons size
+  igCalcTextSizeNonUDT(genBtnSize.addr, "Generate")
+
+  btnsSize += genBtnSize
+  btnsSize += style.itemSpacing
+  btnsSize += genBtnSize
+  btnsSize += style.framePadding * 4 # Two for each button
+
+  genBtnSize.x += style.framePadding.x * 2
+  genBtnSize.y = 0 # So it calculates it
+
+  size += textSize
+  size += btnsSize
+
+  centerCursorY(size.y)
+
+  igBeginChild("Password", igVec2(avail.x, textSize.y), false, makeFlags(HorizontalScrollbar))
+
+  centerCursorX(textSize.x)
+  igText(app.password)
+
+  igEndChild()
+
+  centerCursorX(btnsSize.x)
+
+  if igButton("Generate", genBtnSize):
+    app.genPassword()
+
   igSameLine()
-  igText("counter = %d", app.counter)
 
-  igText("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / igGetIO().framerate, igGetIO().framerate)
-  
+  if igButton(app.copyBtnText, genBtnSize):
+    app.copyPassword()
+
   # Update ImGUi window size to fit GLFW window size
   var width, height: int32
   app.win.getWindowSize(width.addr, height.addr)
@@ -117,7 +172,8 @@ proc display(app: var App) = # Called in the main loop
 
   igRender()
 
-  glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a)
+  let bgColor = igGetStyle().colors[WindowBg.ord]
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, bgColor.w)
   glClear(GL_COLOR_BUFFER_BIT)
 
   igOpenGL3RenderDrawData(igGetDrawData())  
@@ -130,8 +186,8 @@ proc initWindow(app: var App) =
   glfwWindowHint(GLFWResizable, GLFW_TRUE)
   
   app.win = glfwCreateWindow(
-    500, 
-    500, 
+    app.prefs["win/width"].getInt().int32, 
+    app.prefs["win/height"].getInt().int32, 
     app.config["name"].getString(), 
     icon = false # Do not use default icon
   )
@@ -140,26 +196,62 @@ proc initWindow(app: var App) =
     quit(-1)
 
   # Set the window icon
-  var icon = initGLFWImage(app.config["iconPath"].getString().readImage())
+  var icon = initGLFWImage(app.config["iconPath"].getPath().readImage())
   app.win.setWindowIcon(1, icon.addr)
+
+  app.win.setWindowSizeLimits(app.config["minSize"][0].getInt().int32, app.config["minSize"][1].getInt().int32, GLFW_DONT_CARE, GLFW_DONT_CARE) # minWidth, minHeight, maxWidth, maxHeight
+  app.win.setWindowPos(app.prefs["win/x"].getInt().int32, app.prefs["win/y"].getInt().int32)
 
   app.win.makeContextCurrent()
 
-  app.win.setWindowSizeLimits(app.config["minSize"][0].getInt().int32, app.config["minSize"][1].getInt().int32, GLFW_DONT_CARE, GLFW_DONT_CARE) # minWidth, minHeight, maxWidth, maxHeight
-
 proc initPrefs(app: var App) = 
+  when defined(appImage):
+    # Put prefsPath right next to the AppImage
+    let prefsPath = getEnv"APPIMAGE".parentDir / app.config["prefsPath"].getString()
+  else:
+    let prefsPath = getAppDir() / app.config["prefsPath"].getString()
+
   app.prefs = toPrefs({
     win: {
       x: 0,
       y: 0,
-      width: 500,
-      height: 500
+      width: 270,
+      height: 200
     }
-  }).initPrefs(app.config["prefsPath"].getString())
+  }).initPrefs(prefsPath)
+
+proc initconfig(app: var App, settings: PrefsNode) = 
+  # Add the preferences with the values defined in config["settings"]
+  for name, data in settings: 
+    if name in app.prefs: continue
+
+    let settingType = parseEnum[SettingTypes](data["type"])
+    if settingType != Section:
+      app.prefs[name] = data["default"]  
+    else:
+      app.initConfig(data["content"])
+
+proc initApp(config: PObjectType): App = 
+  result = App(config: config, password: "1mP4sw0rdG3n", copyBtnText: "Copy")
+  result.initPrefs()
+  result.initConfig(result.config["settings"])
+
+proc terminate(app: var App) = 
+  var x, y, width, height: int32
+
+  app.win.getWindowPos(x.addr, y.addr)
+  app.win.getWindowSize(width.addr, height.addr)
+  
+  app.prefs["win/x"] = x
+  app.prefs["win/y"] = y
+  app.prefs["win/width"] = width
+  app.prefs["win/height"] = height
+
+  app.win.destroyWindow()
 
 proc main() =
-  var app = App(config: configPath.readPrefs())
-  app.initPrefs()
+  var app = initApp(configPath.getPath().readPrefs())
+  app.pg = newPassGen(passLen = app.prefs["length"].getInt(), flags = app.prefs.calcFlags())
 
   doAssert glfwInit()
 
@@ -169,18 +261,14 @@ proc main() =
 
   let context = igCreateContext()
   let io = igGetIO()
-  app.font = io.fonts.addFontFromFileTTF(app.config["fontPath"].getString(), app.config["fontSize"].getFloat())
+  app.font = io.fonts.addFontFromFileTTF(app.config["fontPath"].getPath(), app.config["fontSize"].getFloat())
 
   io.iniFilename = nil # Disable ini file
 
   doAssert igGlfwInitForOpenGL(app.win, true)
   doAssert igOpenGL3Init()
 
-  setIgStyle(app.config["stylePath"].getString()) # Load application style
-  # igStyleColorsCherry()
-  # igStyleColorsClassic()
-  # igStyleColorsLight()
-  # igStyleColorsDark()
+  setIgStyle(app.config["stylePath"].getPath()) # Load application style
 
   while not app.win.windowShouldClose:
     app.display()
@@ -190,7 +278,8 @@ proc main() =
   igGlfwShutdown()
   context.igDestroyContext()
 
-  app.win.destroyWindow()
+  app.terminate()
+
   glfwTerminate()
 
 when isMainModule:

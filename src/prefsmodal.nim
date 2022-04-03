@@ -1,9 +1,10 @@
 import std/strutils
 
+import passgen
 import niprefs
 import nimgl/imgui
 
-import common
+import utils
 
 proc drawSettings(app: var App, settings: PObjectType)
 
@@ -65,7 +66,8 @@ proc drawSetting(app: var App, name: string, data: PObjectType) =
       data["step_fast"].getInt().int32, 
       flags
     ):
-      app.cache[name] = val.newPInt()
+      if val >= 4 and val <= 1024:
+        app.cache[name] = val.newPInt()
   of FSpin:
     let flags = getFlags[ImGuiInputTextFlags](data["flags"])
     var val = app.cache[name].getFloat().float32
@@ -154,13 +156,15 @@ proc drawPrefsModal*(app: var App) =
   getCenterNonUDT(center.addr, igGetMainViewport())
   igSetNextWindowPos(center, Always, igVec2(0.5f, 0.5f))
 
-  if igBeginPopupModal("Preferences", flags = makeFlags(AlwaysAutoResize)):
+  if igBeginPopupModal("Preferences", flags = makeFlags(AlwaysAutoResize, HorizontalScrollbar)):
     app.drawSettings(app.config["settings"].getObject())
 
     if igButton("Save"):
       for name, val in app.cache:
         app.prefs[name] = val
 
+      # Update the password generator with the new preferences
+      app.pg = newPassGen(passLen = app.prefs["length"].getInt(), flags = app.prefs.calcFlags())
       igCloseCurrentPopup()
     
     igSameLine()
