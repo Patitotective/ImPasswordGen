@@ -12,7 +12,7 @@ nimble install https://github.com/Patitotective/ImPasswordGen
 Go to the [releases page](https://github.com/Patitotective/ImPasswordGen/releases/latest) and download [ImPasswordGen-x86_64.AppImage](https://github.com/Patitotective/ImPasswordGen/releases/latest/download/ImPasswordGen-x86_64.AppImage).
 
 ## About
-- GitHub: https://github.com/Patitotective/ImTemplate.
+- GitHub: https://github.com/Patitotective/ImPasswordGen.
 - Discord: https://discord.gg/as85Q4GnR6.
 
 Contact me:
