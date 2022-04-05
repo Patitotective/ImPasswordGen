@@ -1,4 +1,4 @@
-import std/[strutils, browsers, os]
+import std/[strutils, sequtils, browsers, os]
 
 import imstyle
 import niprefs
@@ -9,12 +9,13 @@ import nimgl/imgui, nimgl/imgui/[impl_opengl, impl_glfw]
 import src/[utils, prefsmodal]
 
 const
+  resourcesDir = "data"
   configPath = "config.niprefs"
 
 proc getPath(path: string): string = 
   # When running on an AppImage get the path from the AppImage resources
   when defined(appImage):
-    result = getEnv"APPDIR" / "data" / path.extractFilename()
+    result = getEnv"APPDIR" / resourcesDir / path.extractFilename()
   else:
     result = getAppDir() / path
 
@@ -27,29 +28,31 @@ proc drawAboutModal(app: var App) =
   igSetNextWindowPos(center, Always, igVec2(0.5f, 0.5f))
 
   if igBeginPopupModal("About " & app.config["name"].getString(), flags = makeFlags(AlwaysAutoResize)):
+
     # Display icon image
     var
       texture: GLuint
       image = app.config["iconPath"].getPath().readImage()
     image.loadTextureFromData(texture)
     
-    igImage(cast[ptr ImTextureID](texture), igVec2(float32 image.width, float32 image.height))
-    
+    igImage(cast[ptr ImTextureID](texture), igVec2(64, 64)) # Or igVec2(image.width.float32, image.height.float32)
+
     igSameLine()
     
-    igBeginGroup()
-    igText(app.config["name"].getString())
-    igText(app.config["version"].getString())
-    igEndGroup()
+    igPushTextWrapPos(250)
+    igTextWrapped(app.config["comment"].getString())
+    igPopTextWrapPos()
 
-    var credits: seq[string]
-    for i in app.config["authors"].getSeq():
-      credits.add i.getString() # Add them as actual strings and not PString so they don't have quotes
-    
-    igTextWrapped("Credits: " & credits.join(", "))
+    igSpacing()
+
+    igTextWrapped("Credits: " & app.config["authors"].getSeq().mapIt(it.getString()).join(", "))
 
     if igButton("Ok"):
       igCloseCurrentPopup()
+
+    igSameLine()
+
+    igText(app.config["version"].getString())
 
     igEndPopup()
 

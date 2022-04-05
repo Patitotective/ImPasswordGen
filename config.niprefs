@@ -4,10 +4,6 @@ comment="ImPasswordGen is a simple password generator GUI application"
 version="0.1.0"
 website="https://github.com/Patitotective/ImPasswordGen"
 authors=["Patitotective"]
-
-# AppImage
-outDir="build"
-resourcesDir="data"
 categories=["Utility"]
 
 prefsPath="ImPasswordGen.niprefs"
