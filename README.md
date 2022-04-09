@@ -1,7 +1,6 @@
-# ImPasswordGen
-Simple password generator ImGui app made with Nim.
-
-![Main window](https://github.com/Patitotective/ImPasswordGen/blob/main/screenshots/main.png)
+# <img title="Icon" width=50 height=50 src="https://github.com/Patitotective/ImPasswordGen/blob/main/assets/icon.svg"></img> ImPasswordGen
+Simple password generator ImGui app made with Nim.  
+![Main window](https://github.com/Patitotective/ImPasswordGen/blob/main/screenshots/main.png) 
 
 ## Installation
 ### Nimble
