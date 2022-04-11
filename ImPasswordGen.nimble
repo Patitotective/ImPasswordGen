@@ -1,6 +1,6 @@
 # Package
 
-version          = "0.1.0"
+version          = "0.1.1"
 author           = "Patitotective"
 description      = "A simple password generator GUI application made with ImGui"
 license          = "MIT"

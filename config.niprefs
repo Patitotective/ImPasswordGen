@@ -1,7 +1,7 @@
 # App
 name="ImPasswordGen"
 comment="ImPasswordGen is a simple password generator GUI application"
-version="0.1.0"
+version="0.1.1"
 website="https://github.com/Patitotective/ImPasswordGen"
 authors=["Patitotective"]
 categories=["Utility"]
