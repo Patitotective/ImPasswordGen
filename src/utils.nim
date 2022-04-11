@@ -180,6 +180,16 @@ proc igHelpMarker*(text: string) =
     igPopTextWrapPos()
     igEndTooltip()
 
+proc newImFontConfig*(mergeMode = false): ImFontConfig =
+  result.fontDataOwnedByAtlas = true
+  result.fontNo = 0
+  result.oversampleH = 3
+  result.oversampleV = 1
+  result.pixelSnapH = true
+  result.glyphMaxAdvanceX = float.high
+  result.rasterizerMultiply = 1.0
+  result.mergeMode = mergeMode
+
 proc centerCursorX*(width: float32, align: float = 0.5f) = 
   # let style = igGetStyle()
   var avail: ImVec2

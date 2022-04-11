@@ -6,12 +6,12 @@ import nimgl/imgui
 
 import utils
 
-proc drawSettings(app: var App, settings: PObjectType)
+proc drawSettings(app: var App, settings: PrefsNode)
 
 proc drawSetting(app: var App, name: string, data: PObjectType) = 
   let settingType = parseEnum[SettingTypes](data["type"])
   if settingType != Section:
-    igText(name.capitalizeAscii() & ": ")
+    igText(name.replace("_", " ").capitalizeAscii() & ": ")
     igSameLine()
 
   case settingType:
@@ -134,14 +134,16 @@ proc drawSetting(app: var App, name: string, data: PObjectType) =
       app.cache[name].seqV.add col[3].newPFloat()
   of Section:
     let flags = getFlags[ImGuiTreeNodeFlags](data["flags"])
-    if igCollapsingHeader(name.capitalizeAscii(), flags):
-      app.drawSettings(data["content"].getObject())
+    if igCollapsingHeader(name.replace("_", " ").capitalizeAscii(), flags):
+      app.drawSettings(data["content"])
 
   if "help" in data:
     igSameLine()
     igHelpMarker(data["help"].getString())
 
-proc drawSettings(app: var App, settings: PObjectType) = 
+proc drawSettings(app: var App, settings: PrefsNode) = 
+  assert settings.kind == PObject
+
   for name, data in settings:
     if parseEnum[SettingTypes](data["type"]) != Section:
       if name notin app.prefs:
@@ -152,12 +154,15 @@ proc drawSettings(app: var App, settings: PObjectType) =
     app.drawSetting(name, data.getObject())
 
 proc drawPrefsModal*(app: var App) = 
-  var center: ImVec2
+  var
+    center: ImVec2
+    # close: bool
+
   getCenterNonUDT(center.addr, igGetMainViewport())
   igSetNextWindowPos(center, Always, igVec2(0.5f, 0.5f))
 
-  if igBeginPopupModal("Preferences", flags = makeFlags(AlwaysAutoResize, HorizontalScrollbar)):
-    app.drawSettings(app.config["settings"].getObject())
+  if igBeginPopupModal("Preferences", flags = makeFlags(AlwaysAutoResize)):
+    app.drawSettings(app.config["settings"])
 
     if igButton("Save"):
       for name, val in app.cache:
@@ -168,9 +173,37 @@ proc drawPrefsModal*(app: var App) =
       igCloseCurrentPopup()
     
     igSameLine()
-    
+
+    #[
+    if igButton("Reset"):
+      igOpenPopup("Reset?")
+
+    igSameLine()
+    ]#
+
     if igButton("Cancel"):
       app.cache = default PObjectType
       igCloseCurrentPopup()
+
+    #[
+    if igBeginPopupModal("Reset?", flags = makeFlags(AlwaysAutoResize)):
+      igText("Are you sure you want to reset the preferences?\nYou won't be able to undo this action")
+      
+      if igButton("Yes"):
+        close = true
+        app.prefs.overwrite()
+        app.cache = default PObjectType
+        igCloseCurrentPopup()
+
+      igSameLine()
+    
+      if igButton("Cancel"):
+        igCloseCurrentPopup()
+
+      igEndPopup()
+
+    if close:
+      igCloseCurrentPopup()
+    ]#
 
     igEndPopup()

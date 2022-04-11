@@ -6,7 +6,7 @@ import passgen
 import nimgl/[opengl, glfw]
 import nimgl/imgui, nimgl/imgui/[impl_opengl, impl_glfw]
 
-import src/[utils, prefsmodal]
+import src/[utils, prefsmodal, icons]
 
 const
   resourcesDir = "data"
@@ -58,7 +58,7 @@ proc drawAboutModal(app: var App) =
 
 proc genPassword(app: var App) = 
   app.password = app.pg.getPassword().replace("%", "%%") # Since a single % mean format
-  app.copyBtnText = "Copy"
+  app.copyBtnText = "Copy " & FA_FilesO
 
 proc copyPassword(app: var App) = 
   app.win.setClipboardString(app.password)
@@ -69,21 +69,21 @@ proc drawMenuBar(app: var App) =
 
   if igBeginMenuBar():
     if igBeginMenu("File"):
-      igMenuItem("Preferences", "Ctrl+P", openPrefs.addr)
-      if igMenuItem("Quit", "Ctrl+Q"):
+      igMenuItem("Preferences " & FA_Cog, "Ctrl+P", openPrefs.addr)
+      if igMenuItem("Quit " & FA_Times, "Ctrl+Q"):
         app.win.setWindowShouldClose(true)
       igEndMenu()
 
     if igBeginMenu("Edit"):
       if igMenuItem("Generate", "Ctrl+G"):
         app.genPassword()
-      if igMenuItem("Copy", "Ctrl+C"):
+      if igMenuItem("Copy " & FA_FilesO, "Ctrl+C"):
         app.copyPassword()
 
       igEndMenu()
 
     if igBeginMenu("About"):
-      if igMenuItem("Website"):
+      if igMenuItem("Website " & FA_Heart):
         app.config["website"].getString().openDefaultBrowser()
 
       igMenuItem("About " & app.config["name"].getString(), shortcut = nil, p_selected = openAbout.addr)
@@ -235,7 +235,7 @@ proc initconfig(app: var App, settings: PrefsNode) =
       app.initConfig(data["content"])
 
 proc initApp(config: PObjectType): App = 
-  result = App(config: config, password: "1mP4sw0rdG3n", copyBtnText: "Copy")
+  result = App(config: config, password: "1mP4sw0rdG3n", copyBtnText: "Copy " & FA_FilesO)
   result.initPrefs()
   result.initConfig(result.config["settings"])
 
@@ -264,9 +264,14 @@ proc main() =
 
   let context = igCreateContext()
   let io = igGetIO()
+  io.iniFilename = nil # Disable ini file
+
   app.font = io.fonts.addFontFromFileTTF(app.config["fontPath"].getPath(), app.config["fontSize"].getFloat())
 
-  io.iniFilename = nil # Disable ini file
+  # Add ForkAwesome icon font
+  var config = utils.newImFontConfig(mergeMode = true)
+  var ranges = [FA_Min.uint16,  FA_Max.uint16]
+  io.fonts.addFontFromFileTTF(app.config["iconFontPath"].getPath(), app.config["fontSize"].getFloat(), config.addr, ranges[0].addr)
 
   doAssert igGlfwInitForOpenGL(app.win, true)
   doAssert igOpenGL3Init()

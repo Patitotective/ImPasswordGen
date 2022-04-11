@@ -10,6 +10,7 @@ prefsPath="ImPasswordGen.niprefs"
 stylePath="assets/style.niprefs"
 iconPath="assets/icon.png"
 svgIconPath="assets/icon.svg"
+iconFontPath="assets/forkawesome-webfont.ttf"
 fontPath="assets/ProggyVector Regular.ttf"
 fontSize=17f
 

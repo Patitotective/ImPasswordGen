@@ -6,7 +6,7 @@ description      = "A simple password generator GUI application made with ImGui"
 license          = "MIT"
 namedBin["main"] = "ImPasswordGen"
 binDir           = "build"
-installFiles     = @["config.niprefs", "assets/icon.png", "assets/style.niprefs", "assets/ProggyVector Regular.ttf"]
+installFiles     = @["config.niprefs", "assets/icon.png", "assets/style.niprefs", "assets/ProggyVector Regular.ttf", "assets/forkawesome-webfont.ttf"]
 
 # Dependencies
 
