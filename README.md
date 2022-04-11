@@ -16,5 +16,5 @@ Go to the [releases page](https://github.com/Patitotective/ImPasswordGen/release
 
 Contact me:
 - Discord: **Patitotective#0127**.
-- Tiwtter: [@patitotective](https://twitter.com/patitotective).
+- Twitter: [@patitotective](https://twitter.com/patitotective).
 - Email: **cristobalriaga@gmail.com**.
