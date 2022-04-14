@@ -226,13 +226,11 @@ proc initPrefs(app: var App) =
 proc initconfig(app: var App, settings: PrefsNode) = 
   # Add the preferences with the values defined in config["settings"]
   for name, data in settings: 
-    if name in app.prefs: continue
-
     let settingType = parseEnum[SettingTypes](data["type"])
-    if settingType != Section:
-      app.prefs[name] = data["default"]  
-    else:
-      app.initConfig(data["content"])
+    if settingType == Section:
+      app.initConfig(data["content"])  
+    elif name notin app.prefs:
+      app.prefs[name] = data["default"]
 
 proc initApp(config: PObjectType): App = 
   result = App(config: config, password: "1mP4sw0rdG3n", copyBtnText: "Copy " & FA_FilesO)
