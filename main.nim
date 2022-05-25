@@ -1,4 +1,4 @@
-import std/[strutils, sequtils, browsers, os]
+import std/[strutils, os]
 
 import imstyle
 import niprefs
@@ -6,68 +6,88 @@ import passgen
 import nimgl/[opengl, glfw]
 import nimgl/imgui, nimgl/imgui/[impl_opengl, impl_glfw]
 
-import src/[utils, prefsmodal, icons]
+import src/[prefsmodal, utils, icons]
+when defined(release):
+  from resourcesdata import resources
 
-const
-  resourcesDir = "data"
-  configPath = "config.niprefs"
+const configPath = "config.niprefs"
 
-proc getPath(path: string): string = 
-  # When running on an AppImage get the path from the AppImage resources
-  when defined(appImage):
-    result = getEnv"APPDIR" / resourcesDir / path.extractFilename()
+proc getData(path: string): string = 
+  when defined(release):
+    resources[path]
   else:
-    result = getAppDir() / path
+    readFile(path)
 
-proc getPath(path: PrefsNode): string = 
-  path.getString().getPath()
+proc getData(node: PrefsNode): string = 
+  node.getString().getData()
 
-proc drawAboutModal(app: var App) = 
+proc getCacheDir(app: App): string = 
+  getCacheDir(app.config["name"].getString())
+
+proc drawAboutModal(app: App) = 
   var center: ImVec2
   getCenterNonUDT(center.addr, igGetMainViewport())
   igSetNextWindowPos(center, Always, igVec2(0.5f, 0.5f))
 
-  if igBeginPopupModal("About " & app.config["name"].getString(), flags = makeFlags(AlwaysAutoResize)):
-
+  let unusedOpen = true # Passing this parameter creates a close button
+  if igBeginPopupModal(cstring "About " & app.config["name"].getString(), unusedOpen.unsafeAddr, flags = makeFlags(ImGuiWindowFlags.NoResize)):
     # Display icon image
-    var
-      texture: GLuint
-      image = app.config["iconPath"].getPath().readImage()
+    var texture: GLuint
+    var image = app.config["iconPath"].getData().readImageFromMemory()
+
     image.loadTextureFromData(texture)
-    
+
     igImage(cast[ptr ImTextureID](texture), igVec2(64, 64)) # Or igVec2(image.width.float32, image.height.float32)
+    if igIsItemHovered():
+      igSetTooltip(cstring app.config["website"].getString() & " " & FA_ExternalLink)
+      
+      if igIsMouseClicked(ImGuiMouseButton.Left):
+        app.config["website"].getString().openURL()
 
     igSameLine()
     
     igPushTextWrapPos(250)
-    igTextWrapped(app.config["comment"].getString())
+    igTextWrapped(app.config["comment"].getString().cstring)
     igPopTextWrapPos()
 
     igSpacing()
 
-    igTextWrapped("Credits: " & app.config["authors"].getSeq().mapIt(it.getString()).join(", "))
+    # To make it not clickable
+    igPushItemFlag(ImGuiItemFlags.Disabled, true)
+    igSelectable("Credits", true, makeFlags(ImGuiSelectableFlags.DontClosePopups))
+    igPopItemFlag()
 
-    if igButton("Ok"):
-      igCloseCurrentPopup()
+    if igBeginChild("##credits", igVec2(0, 75)):
+      for author in app.config["authors"]:
+        let (name, url) = block: 
+          let (name,  url) = author.getString().removeInside('<', '>')
+          (name.strip(),  url.strip())
 
-    igSameLine()
+        if igSelectable(cstring name) and url.len > 0:
+            url.openURL()
+        if igIsItemHovered() and url.len > 0:
+          igSetTooltip(cstring url & " " & FA_ExternalLink)
+      
+      igEndChild()
 
-    igText(app.config["version"].getString())
+    igSpacing()
+
+    igText(app.config["version"].getString().cstring)
 
     igEndPopup()
 
 proc genPassword(app: var App) = 
-  app.password = app.pg.getPassword().replace("%", "%%") # Since a single % mean format
   app.copyBtnText = "Copy " & FA_FilesO
+  app.password = app.pg.getPassword().replace("%", "%%") # Since a single % mean format
 
 proc copyPassword(app: var App) = 
-  app.win.setClipboardString(app.password)
   app.copyBtnText = "Copied"
+  app.win.setClipboardString(app.password)
 
-proc drawMenuBar(app: var App) =
+proc drawMainMenuBar(app: var App) =
   var openAbout, openPrefs = false
 
-  if igBeginMenuBar():
+  if igBeginMainMenuBar():
     if igBeginMenu("File"):
       igMenuItem("Preferences " & FA_Cog, "Ctrl+P", openPrefs.addr)
       if igMenuItem("Quit " & FA_Times, "Ctrl+Q"):
@@ -83,103 +103,106 @@ proc drawMenuBar(app: var App) =
       igEndMenu()
 
     if igBeginMenu("About"):
-      if igMenuItem("Website " & FA_Heart):
-        app.config["website"].getString().openDefaultBrowser()
+      if igMenuItem("Website " & FA_ExternalLink):
+        app.config["website"].getString().openURL()
 
-      igMenuItem("About " & app.config["name"].getString(), shortcut = nil, p_selected = openAbout.addr)
+      igMenuItem(cstring "About " & app.config["name"].getString(), shortcut = nil, p_selected = openAbout.addr)
 
       igEndMenu() 
 
-    igEndMenuBar()
+    igEndMainMenuBar()
 
   # See https://github.com/ocornut/imgui/issues/331#issuecomment-751372071
   if openPrefs:
     igOpenPopup("Preferences")
   if openAbout:
-    igOpenPopup("About " & app.config["name"].getString())
+    igOpenPopup(cstring "About " & app.config["name"].getString())
 
   # These modals will only get drawn when igOpenPopup(name) are called, respectly
   app.drawAboutModal()
   app.drawPrefsModal()
 
 proc drawMain(app: var App) = # Draw the main window
-  igBegin(app.config["name"].getString(), flags = makeFlags(ImGuiWindowFlags.NoResize, NoMove, NoTitleBar, NoCollapse, MenuBar))
-  igSetWindowPos(igVec2(0, 0), Always)
+  let viewport = igGetMainViewport()  
+  
+  app.drawMainMenuBar()
+  # Work area is the entire viewport minus main menu bar, task bars, etc.
+  igSetNextWindowPos(viewport.workPos)
+  igSetNextWindowSize(viewport.workSize)
 
-  app.drawMenuBar()
+  if igBegin(app.config["name"].getString().cstring, flags = makeFlags(ImGuiWindowFlags.NoResize, NoDecoration, NoMove)):
+    let style = igGetStyle()
+    let avail = igGetContentRegionAvail()
+    var textSize = igCalcTextSize(app.password)
+    var genBtnSize = igCalcTextSize("Generate")
+    var size: ImVec2 # All widgets size
+    var btnsSize: ImVec2
 
-  let style = igGetStyle()
-  var
-    size: ImVec2 # All widgets size
-    avail: ImVec2
-    textSize: ImVec2
-    btnsSize: ImVec2
-    genBtnSize: ImVec2
+    if textSize.x > avail.x + 20:
+      textSize.y += 17
 
-  igGetContentRegionAvailNonUDT(avail.addr)
+    btnsSize += genBtnSize
+    btnsSize += style.itemSpacing
+    btnsSize += genBtnSize
+    btnsSize += style.framePadding * 4 # Two for each button
 
-  # Calculate password text size
-  igCalcTextSizeNonUDT(textSize.addr, app.password)
+    genBtnSize.x += style.framePadding.x * 2
+    genBtnSize.y = 0 # So it calculates it
 
-  if textSize.x > avail.x + 20:
-    textSize.y += 17
+    size += textSize
+    size += btnsSize
 
-  # Calculate buttons size
-  igCalcTextSizeNonUDT(genBtnSize.addr, "Generate")
+    centerCursorY(size.y)
 
-  btnsSize += genBtnSize
-  btnsSize += style.itemSpacing
-  btnsSize += genBtnSize
-  btnsSize += style.framePadding * 4 # Two for each button
+    igPushStyleColor(ChildBg, igGetColorU32(WindowBg))
 
-  genBtnSize.x += style.framePadding.x * 2
-  genBtnSize.y = 0 # So it calculates it
+    if igBeginChild("Password", igVec2(avail.x, textSize.y), border = false, flags = makeFlags(HorizontalScrollbar)):
+      centerCursorX(textSize.x)
+      igText(app.password)
 
-  size += textSize
-  size += btnsSize
+      igEndChild()
 
-  centerCursorY(size.y)
+    igPopStyleColor()
 
-  igBeginChild("Password", igVec2(avail.x, textSize.y), false, makeFlags(HorizontalScrollbar))
+    centerCursorX(btnsSize.x)
 
-  centerCursorX(textSize.x)
-  igText(app.password)
+    if igButton("Generate", genBtnSize):
+      app.genPassword()
 
-  igEndChild()
+    igSameLine()
 
-  centerCursorX(btnsSize.x)
-
-  if igButton("Generate", genBtnSize):
-    app.genPassword()
-
-  igSameLine()
-
-  if igButton(app.copyBtnText, genBtnSize):
-    app.copyPassword()
-
-  # Update ImGUi window size to fit GLFW window size
-  var width, height: int32
-  app.win.getWindowSize(width.addr, height.addr)
-  igSetWindowSize(igVec2(width.float32, height.float32), Always)
+    if igButton(app.copyBtnText, genBtnSize):
+      app.copyPassword()
 
   igEnd()
 
-proc display(app: var App) = # Called in the main loop
-  glfwPollEvents()
+proc render(app: var App) = # Called in the main loop
+  # Poll and handle events (inputs, window resize, etc.)
+  glfwPollEvents() # Use glfwWaitEvents() to only draw on events (more efficient)
 
+  # Start Dear ImGui Frame
   igOpenGL3NewFrame()
   igGlfwNewFrame()
   igNewFrame()
 
+  # Draw application
   app.drawMain()
 
+  # Render
   igRender()
 
-  let bgColor = igGetStyle().colors[WindowBg.ord]
+  var displayW, displayH: int32
+  let bgColor = igColorConvertU32ToFloat4(uint32 WindowBg)
+
+  app.win.getFramebufferSize(displayW.addr, displayH.addr)
+  glViewport(0, 0, displayW, displayH)
   glClearColor(bgColor.x, bgColor.y, bgColor.z, bgColor.w)
   glClear(GL_COLOR_BUFFER_BIT)
 
   igOpenGL3RenderDrawData(igGetDrawData())  
+
+  app.win.makeContextCurrent()
+  app.win.swapBuffers()
 
 proc initWindow(app: var App) = 
   glfwWindowHint(GLFWContextVersionMajor, 3)
@@ -187,11 +210,11 @@ proc initWindow(app: var App) =
   glfwWindowHint(GLFWOpenglForwardCompat, GLFW_TRUE)
   glfwWindowHint(GLFWOpenglProfile, GLFW_OPENGL_CORE_PROFILE)
   glfwWindowHint(GLFWResizable, GLFW_TRUE)
-  
+
   app.win = glfwCreateWindow(
     app.prefs["win/width"].getInt().int32, 
     app.prefs["win/height"].getInt().int32, 
-    app.config["name"].getString(), 
+    app.config["name"].getString().cstring, 
     icon = false # Do not use default icon
   )
 
@@ -199,43 +222,40 @@ proc initWindow(app: var App) =
     quit(-1)
 
   # Set the window icon
-  var icon = initGLFWImage(app.config["iconPath"].getPath().readImage())
+  var icon = initGLFWImage(app.config["iconPath"].getData().readImageFromMemory())
   app.win.setWindowIcon(1, icon.addr)
 
   app.win.setWindowSizeLimits(app.config["minSize"][0].getInt().int32, app.config["minSize"][1].getInt().int32, GLFW_DONT_CARE, GLFW_DONT_CARE) # minWidth, minHeight, maxWidth, maxHeight
-  app.win.setWindowPos(app.prefs["win/x"].getInt().int32, app.prefs["win/y"].getInt().int32)
 
-  app.win.makeContextCurrent()
+  # If negative pos, center the window in the first monitor
+  if app.prefs["win/x"].getInt() < 0 or app.prefs["win/y"].getInt() < 0:
+    var monitorX, monitorY, count: int32
+    let monitors = glfwGetMonitors(count.addr)
+    let videoMode = monitors[0].getVideoMode()
+
+    monitors[0].getMonitorPos(monitorX.addr, monitorY.addr)
+    app.win.setWindowPos(
+      monitorX + int32((videoMode.width - app.prefs["win/width"].getInt()) / 2), 
+      monitorY + int32((videoMode.height - app.prefs["win/height"].getInt()) / 2)
+    )
+  else:
+    app.win.setWindowPos(app.prefs["win/x"].getInt().int32, app.prefs["win/y"].getInt().int32)
 
 proc initPrefs(app: var App) = 
-  when defined(appImage):
-    # Put prefsPath right next to the AppImage
-    let prefsPath = getEnv"APPIMAGE".parentDir / app.config["prefsPath"].getString()
-  else:
-    let prefsPath = getAppDir() / app.config["prefsPath"].getString()
-
   app.prefs = toPrefs({
     win: {
-      x: 0,
-      y: 0,
-      width: 270,
-      height: 200
+      x: -1, # Negative numbers center the window
+      y: -1,
+      width: 450,
+      height: 300
     }
-  }).initPrefs(prefsPath)
-
-proc initconfig(app: var App, settings: PrefsNode) = 
-  # Add the preferences with the values defined in config["settings"]
-  for name, data in settings: 
-    let settingType = parseEnum[SettingTypes](data["type"])
-    if settingType == Section:
-      app.initConfig(data["content"])  
-    elif name notin app.prefs:
-      app.prefs[name] = data["default"]
+  }).initPrefs((app.getCacheDir() / app.config["name"].getString()).changeFileExt("niprefs"))
 
 proc initApp(config: PObjectType): App = 
   result = App(config: config, password: "1mP4sw0rdG3n", copyBtnText: "Copy " & FA_FilesO)
   result.initPrefs()
   result.initConfig(result.config["settings"])
+  result.updatePrefs()
 
 proc terminate(app: var App) = 
   var x, y, width, height: int32
@@ -248,44 +268,51 @@ proc terminate(app: var App) =
   app.prefs["win/width"] = width
   app.prefs["win/height"] = height
 
-  app.win.destroyWindow()
-
 proc main() =
-  var app = initApp(configPath.getPath().readPrefs())
-  app.pg = newPassGen(passLen = app.prefs["length"].getInt(), flags = app.prefs.calcFlags())
+  var app = initApp(configPath.getData().parsePrefs())
 
+  # Setup Window
   doAssert glfwInit()
-
   app.initWindow()
+  
+  app.win.makeContextCurrent()
+  glfwSwapInterval(1) # Enable vsync
 
   doAssert glInit()
 
-  let context = igCreateContext()
+  # Setup Dear ImGui context
+  igCreateContext()
   let io = igGetIO()
-  io.iniFilename = nil # Disable ini file
+  io.iniFilename = nil # Disable .ini config file
 
-  app.font = io.fonts.addFontFromFileTTF(app.config["fontPath"].getPath(), app.config["fontSize"].getFloat())
+  # Setup Dear ImGui style using ImStyle
+  setIgStyle(app.config["stylePath"].getData().parsePrefs())
 
-  # Add ForkAwesome icon font
-  var config = utils.newImFontConfig(mergeMode = true)
-  var ranges = [FA_Min.uint16,  FA_Max.uint16]
-  io.fonts.addFontFromFileTTF(app.config["iconFontPath"].getPath(), app.config["fontSize"].getFloat(), config.addr, ranges[0].addr)
-
+  # Setup Platform/Renderer backends
   doAssert igGlfwInitForOpenGL(app.win, true)
   doAssert igOpenGL3Init()
 
-  setIgStyle(app.config["stylePath"].getPath()) # Load application style
+  # Load fonts
+  app.font = io.fonts.igAddFontFromMemoryTTF(app.config["fontPath"].getData(), app.config["fontSize"].getFloat())
 
+  # Merge ForkAwesome icon font
+  var config = utils.newImFontConfig(mergeMode = true)
+  var ranges = [FA_Min.uint16,  FA_Max.uint16]
+
+  io.fonts.igAddFontFromMemoryTTF(app.config["iconFontPath"].getData(), app.config["fontSize"].getFloat(), config.addr, ranges[0].addr)
+
+  # Main loop
   while not app.win.windowShouldClose:
-    app.display()
-    app.win.swapBuffers()
+    app.render()
 
+  # Cleanup
   igOpenGL3Shutdown()
   igGlfwShutdown()
-  context.igDestroyContext()
-
+  
+  igDestroyContext()
+  
   app.terminate()
-
+  app.win.destroyWindow()
   glfwTerminate()
 
 when isMainModule:
