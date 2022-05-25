@@ -1,6 +1,6 @@
 # <img title="Icon" width=50 height=50 src="https://github.com/Patitotective/ImPasswordGen/blob/main/assets/icon.svg"></img> ImPasswordGen
 Simple password generator Dear ImGui application made with Nim.  
-![Main window](https://github.com/Patitotective/ImPasswordGen/blob/main/screenshots/main.png) 
+![Main window](https://user-images.githubusercontent.com/79225325/170163314-157b5e84-2196-4637-9a7d-c93cd2200b9d.png)
 
 ## Installation
 Go to the [releases page](https://github.com/Patitotective/ImPasswordGen/releases/latest) and download:
