@@ -1,4 +1,4 @@
-# <img title="Icon" width=50 height=50 src="https://github.com/Patitotective/ImPasswordGen/blob/main/assets/icon.svg"></img> ImPasswordGen
+# <img title="Icon" width=50 height=50 src="https://github.com/Patitotective/ImPasswordGen/blob/main/assets/icon.png"></img> ImPasswordGen
 Simple password generator Dear ImGui application made with Nim.  
 ![Main window](https://github.com/Patitotective/ImPasswordGen/blob/main/screenshots/main.png) 
 
