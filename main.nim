@@ -82,7 +82,7 @@ proc genPassword(app: var App) =
 
 proc copyPassword(app: var App) = 
   app.copyBtnText = "Copied"
-  app.win.setClipboardString(app.password)
+  app.win.setClipboardString(cstring app.password)
 
 proc drawMainMenuBar(app: var App) =
   var openAbout, openPrefs = false
@@ -130,50 +130,39 @@ proc drawMain(app: var App) = # Draw the main window
   igSetNextWindowPos(viewport.workPos)
   igSetNextWindowSize(viewport.workSize)
 
+  app.bigFont.igPushFont()
   if igBegin(app.config["name"].getString().cstring, flags = makeFlags(ImGuiWindowFlags.NoResize, NoDecoration, NoMove)):
     let style = igGetStyle()
     let avail = igGetContentRegionAvail()
-    var textSize = igCalcTextSize(app.password)
-    var genBtnSize = igCalcTextSize("Generate")
-    var size: ImVec2 # All widgets size
-    var btnsSize: ImVec2
+    let textWidth = igCalcTextSize(cstring app.password).x
+    let textHeight = if textWidth > avail.x: igGetFrameHeight() + style.scrollbarSize else: igGetFrameHeight()
+    let genBtnWidth = igCalcTextSize("Generate").x + (style.framePadding.x * 2)
+    let copyBtnWidth = igCalcTextSize(cstring app.copyBtnText).x + (style.framePadding.x * 2)
+    let btnsWidth = genBtnWidth + copyBtnWidth + style.itemSpacing.x
 
-    if textSize.x > avail.x + 20:
-      textSize.y += 17
-
-    btnsSize += genBtnSize
-    btnsSize += style.itemSpacing
-    btnsSize += genBtnSize
-    btnsSize += style.framePadding * 4 # Two for each button
-
-    genBtnSize.x += style.framePadding.x * 2
-    genBtnSize.y = 0 # So it calculates it
-
-    size += textSize
-    size += btnsSize
-
-    centerCursorY(size.y)
+    centerCursorY(igGetFrameHeight() + style.itemSpacing.y + textHeight)
 
     igPushStyleColor(ChildBg, igGetColorU32(WindowBg))
 
-    if igBeginChild("Password", igVec2(avail.x, textSize.y), border = false, flags = makeFlags(HorizontalScrollbar)):
-      centerCursorX(textSize.x)
-      igText(app.password)
+    if igBeginChild("Password", igVec2(0, textHeight), border = false, flags = makeFlags(HorizontalScrollbar)):
+      centerCursorX(textWidth)
+      igText(cstring app.password)
 
       igEndChild()
 
     igPopStyleColor()
 
-    centerCursorX(btnsSize.x)
+    centerCursorX(btnsWidth)
 
-    if igButton("Generate", genBtnSize):
+    if igButton("Generate"):
       app.genPassword()
 
     igSameLine()
 
-    if igButton(app.copyBtnText, genBtnSize):
+    if igButton(cstring app.copyBtnText):
       app.copyPassword()
 
+  igPopFont()
   igEnd()
 
 proc render(app: var App) = # Called in the main loop
@@ -235,8 +224,8 @@ proc initWindow(app: var App) =
 
     monitors[0].getMonitorPos(monitorX.addr, monitorY.addr)
     app.win.setWindowPos(
-      monitorX + int32((videoMode.width - app.prefs["win/width"].getInt()) / 2), 
-      monitorY + int32((videoMode.height - app.prefs["win/height"].getInt()) / 2)
+      monitorX + int32((videoMode.width - int app.prefs["win/width"].getInt()) / 2), 
+      monitorY + int32((videoMode.height - int app.prefs["win/height"].getInt()) / 2)
     )
   else:
     app.win.setWindowPos(app.prefs["win/x"].getInt().int32, app.prefs["win/y"].getInt().int32)
@@ -300,6 +289,9 @@ proc main() =
   var ranges = [FA_Min.uint16,  FA_Max.uint16]
 
   io.fonts.igAddFontFromMemoryTTF(app.config["iconFontPath"].getData(), app.config["fontSize"].getFloat(), config.addr, ranges[0].addr)
+
+  app.bigFont = io.fonts.igAddFontFromMemoryTTF(app.config["fontPath"].getData(), app.config["fontSize"].getFloat()+5)
+  io.fonts.igAddFontFromMemoryTTF(app.config["iconFontPath"].getData(), app.config["fontSize"].getFloat()+5, config.addr, ranges[0].addr)
 
   # Main loop
   while not app.win.windowShouldClose:

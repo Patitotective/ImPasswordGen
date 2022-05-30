@@ -14,7 +14,7 @@ childBorderSize=1
 popupRounding=1
 popupBorderSize=1
 
-framePadding=[5, 3]
+framePadding=[6, 4]
 frameRounding=3
 frameBorderSize=0
 

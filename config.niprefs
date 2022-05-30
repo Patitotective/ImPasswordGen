@@ -1,14 +1,13 @@
 # App
 name="ImPasswordGen"
 comment="ImPasswordGen is a simple password generator GUI application"
-version="0.2.0"
+version="0.2.1"
 website="https://github.com/Patitotective/ImPasswordGen"
 authors=["Patitotective <https://github.com/Patitotective>"]
 categories=["Utility"]
 
 # AppImage
 ghRepo="Patitotective/ImTemplate"
-arch="x86_64"
 
 stylePath="assets/style.niprefs"
 iconPath="assets/icon.png"
@@ -18,7 +17,7 @@ fontPath="assets/ProggyVector Regular.ttf"
 fontSize=17f
 
 # Window
-minSize=[250, 250] # Width, height
+minSize=[440, 250] # Width, height
 
 # Settings for the preferences window
 settings=>
