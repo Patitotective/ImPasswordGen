@@ -1,0 +1,47 @@
+# App
+name = "ImPasswordGen"
+comment = "ImPasswordGen is a simple password generator GUI application"
+version = "0.3.0"
+website = "https://github.com/Patitotective/ImPasswordGen"
+authors = ["Patitotective <https://github.com/Patitotective>"]
+categories = ["Utility"]
+
+# AppImage
+ghRepo = "Patitotective/ImPasswordGen"
+
+stylePath = "assets/style.toml"
+iconPath = "assets/icon.png"
+svgIconPath = "assets/icon.svg"
+iconFontPath = "assets/forkawesome-webfont.ttf"
+fontPath = "assets/ProggyVector Regular.ttf" # Other options are Roboto-Regular.ttf, Cousine-Regular.ttf or Karla-Regular.ttf
+fontSize = 17.0
+
+# Window
+minSize = [440, 250] # Width, height
+
+# Settings for the preferences window
+[settings.length]
+type = "spin"
+default = 15
+step = 1
+step_fast = 10
+flags = "None" # See https://nimgl.dev/docs/imgui.html#ImGuiInputTextFlags
+help = "Password length"
+[settings.upper]
+display = "Uppercase"
+type = "check"
+default = true
+help = "Include uppercase letters in the password"
+[settings.lower]
+display = "Lowercase"
+type = "check"
+default = true
+help = "Include lowercase letters in the password"
+[settings.digits]
+type = "check"
+default = true
+help = "Include digits in the password"
+[settings.special]
+type = "check"
+default = true
+help = "Include special characters in the password"
