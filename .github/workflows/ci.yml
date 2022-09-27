@@ -35,11 +35,11 @@ jobs:
       - name: Build
         run: |
           nimble install -d -y
-          nake build
+          nimble buildApp
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: win-amd64
-          path: ./*.zip
+          path: ./*-*-*.exe
           if-no-files-found: error
