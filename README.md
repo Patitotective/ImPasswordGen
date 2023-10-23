@@ -16,7 +16,7 @@ nimble install https://github.com/Patitotective/ImPasswordGen
 ## About
 - This app was generated from [ImTemplate](https://github.com/Patitotective/ImTemplate).
 - GitHub: https://github.com/Patitotective/ImPasswordGen.
-- Discord: https://discord.gg/gdcPVjazCG.
+- Discord: https://discord.gg/U23ZQMsvwc.
 
 Contact me:
 - Discord: **Patitotective#0127**.
